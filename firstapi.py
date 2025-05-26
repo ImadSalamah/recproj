@@ -1,23 +1,20 @@
 import base64
 import io
-import os
-import json
 import numpy as np
 import firebase_admin
 from firebase_admin import credentials, db
 from PIL import Image
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS 
 import face_recognition
 
-# ✅ تحميل مفتاح Firebase من متغير بيئة (SECRET)
-service_account_info = json.loads(os.getenv("SERVICE_ACCOUNT_JSON"))
-cred = credentials.Certificate(service_account_info)
+# Firebase setup
+cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://dcms-aaup-6e1e4-default-rtdb.firebaseio.com/'
 })
 
-# ✅ تحميل الوجوه من Firebase
+# Load known faces from Firebase
 ref = db.reference('users')
 users = ref.get()
 known_face_encodings = []
@@ -33,7 +30,7 @@ for user_id, user_data in users.items():
             image_data = base64.b64decode(user_data['image'])
             image = Image.open(io.BytesIO(image_data)).convert("RGB")
             image_np = np.array(image)
-
+            
             face_locations = face_recognition.face_locations(image_np)
             if not face_locations:
                 print(f"No face found for user {user_id}")
@@ -47,9 +44,9 @@ for user_id, user_data in users.items():
         except Exception as e:
             print(f"Error loading user {user_id}: {e}")
 
-# ✅ إعداد Flask مع CORS
+# Flask app
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route('/recognize', methods=['POST'])
 def recognize():
@@ -87,6 +84,5 @@ def recognize():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-# ✅ لتشغيل محليًا أو على سيرفر
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+    app.run(host='0.0.0.0', port=5050, debug=False)
